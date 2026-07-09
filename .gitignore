@@ -1,0 +1,3 @@
+# Logs are stored outside the repo in %LOCALAPPDATA%\WindowsHealthCheck\logs
+logs/
+*.log
