@@ -1,0 +1,21 @@
+# =============================================================================
+# NAS standard .vercelignore — dev/automation only; NEVER excludes app code.
+# Safe for production: src/, app/, api/, public/, package.json, next.config, etc.
+# stay on Vercel. Only listed paths are stripped from the deploy upload.
+# =============================================================================
+
+# Cursor: rules, MCP, automation (local dev only; synced via git).
+.cursor/
+
+# Chat backup + private dev history (git + OneDrive; not for Vercel).
+docs/sync/
+docs/cursor-chats/
+
+# Named cursor chat exports only — NOT all of docs/ (ROADMAP, DEPLOY, etc. stay).
+docs/cursor_*.md
+
+# Backup/export scripts only — NOT scripts/seed.ts, phase-deploy.mjs, etc.
+scripts/export-cursor-chats.mjs
+scripts/setup-sync-scheduler.ps1
+
+# Backup hub lives outside repos: OneDrive/AI life/cursor-backup/
