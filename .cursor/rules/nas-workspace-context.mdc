@@ -49,6 +49,22 @@ When starting a new chat, check `docs/sync/sessions/` and recent git log for con
 
 ---
 
+# Local dev → Git → Vercel (standard NAS workflow)
+
+1. **Develop locally** on the laptop assigned to this project (see Primary laptop above).
+2. **Commit** on the working branch (usually `development` for active apps).
+3. **Push** to GitHub → Vercel auto-deploys that branch (preview for `development`, production for `main`).
+4. **Do not** put automation/chat backup on Vercel — `.vercelignore` excludes `.cursor/`, `docs/sync/`, and backup scripts only. App code (`src/`, `app/`, `api/`, `public/`, configs) is **never** excluded.
+
+| Branch | Vercel | Use |
+|--------|--------|-----|
+| `development` | Preview deploy | Daily work, test before prod |
+| `main` / `master` | Production | Live site when ready |
+
+Before ending a phase on Vercel projects: build locally (`npm run build`), then push. Fleet uses `npm run phase:deploy` per `phase-deploy-workflow.mdc`.
+
+---
+
 # Git conventions
 
 - GitHub org/user: `drneeraja2025`
