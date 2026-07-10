@@ -1,0 +1,56 @@
+---
+description: NAS workspace context — laptop split, this project, backups, archived repos
+alwaysApply: true
+---
+
+# This project
+
+| Field | Value |
+|-------|-------|
+| **Project** | windows-health-check |
+| **GitHub** | `drneeraja2025/windows-health-check` |
+| **Primary laptop** | legacy |
+| **Default branch** | `master` |
+
+Develop primarily on the **legacy laptop**. Pull before starting work.
+
+---
+
+# Two-laptop workspace (Dr. Neeraj Agrawal / NAS)
+
+| Laptop | Role | Active projects |
+|--------|------|-----------------|
+| **Dev** (better machine) | Active product development | saarthee-fleet-manager, saarthee-coplanner, nas-ops-hub (NAS portal) |
+| **Legacy** (this machine) | Resume, horoscope, older updates | resume, a-guide-to-understand-horoscope, electro-extract, Gurukul-by-NAS, windows-health-check, gna-nova-shell |
+| **Both** | Either machine | nasneeraj.com |
+
+**NAS portal** = `nas-ops-hub` (not nasneeraj.com).
+
+---
+
+# Archived — do not update
+
+These repos are frozen; no new features, fixes, or deploys unless the user explicitly asks:
+
+- `sismms-v1-vercel`
+- `nas-lovable-wallet`
+
+---
+
+# Chat & rules backup
+
+- **Auto-backup** every 3 hours: chats → `docs/sync/sessions/`, rules → `.cursor/rules/` → GitHub
+- **Hub:** `OneDrive\AI life\cursor-backup\`
+- **New laptop:** run `cursor-backup\restore-new-laptop.ps1` (close Cursor first)
+- **Dev laptop setup:** `cursor-backup\setup-dev-laptop.ps1`
+- Past chats may also be in `docs/sync/sessions/` or Shala `docs/cursor_*.md` archives
+
+When starting a new chat, check `docs/sync/sessions/` and recent git log for context before asking the user to re-explain.
+
+---
+
+# Git conventions
+
+- GitHub org/user: `drneeraja2025`
+- Never commit secrets (.env, tokens, credentials)
+- User prefers short git refs (first 7 chars of SHAs) when citing commits
