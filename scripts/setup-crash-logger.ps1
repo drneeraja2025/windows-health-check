@@ -21,6 +21,15 @@ schtasks /Create /TN 'WinHealth-Heartbeat' /TR $heartbeatBat /SC MINUTE /MO 2 /F
 if ($LASTEXITCODE -ne 0) { throw "Failed to create WinHealth-Heartbeat (exit $LASTEXITCODE)" }
 Log 'Created WinHealth-Heartbeat (crash-check + heartbeat every 2 minutes)'
 
+# schtasks defaults to "stop/disallow on battery" — disable that, since battery-power
+# crashes are exactly what this logger needs to catch.
+$task = Get-ScheduledTask -TaskName 'WinHealth-Heartbeat'
+$settings = $task.Settings
+$settings.DisallowStartIfOnBatteries = $false
+$settings.StopIfGoingOnBatteries = $false
+Set-ScheduledTask -TaskName 'WinHealth-Heartbeat' -Settings $settings | Out-Null
+Log 'Disabled battery-power restrictions on WinHealth-Heartbeat'
+
 Log 'Running now to verify...'
 & (Join-Path $PSScriptRoot 'check-last-shutdown.ps1')
 & (Join-Path $PSScriptRoot 'heartbeat.ps1')
