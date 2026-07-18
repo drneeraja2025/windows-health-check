@@ -10,8 +10,18 @@ Works on any Windows 10/11 laptop after a clone — no hardcoded user paths.
 |------|----------|---------|
 | **WinHealth-SFC-Weekly** | Sundays 3:00 AM | `sfc /scannow` (~10–20 min) |
 | **WinHealth-Full-Monthly** | 1st of month 3:30 AM | DISM + SFC (~30–90 min) |
+| **WinHealth-Heartbeat** | Every 2 minutes | Crash-check + lightweight AC/battery/CPU heartbeat |
 
 Logs: `%LOCALAPPDATA%\WindowsHealthCheck\logs\`
+
+### Crash logger
+
+Hard power-loss crashes (loose charger, failing battery, etc.) don't produce a BSOD or minidump — Windows just shuts off. `WinHealth-Heartbeat` runs every 2 minutes and:
+
+1. Checks for a new unexpected shutdown (Event ID 6008). If found, appends the event plus the **last 5 heartbeats before the crash** to `crash-summary.log`.
+2. Appends one line to `heartbeat.log`: timestamp, AC online/offline, battery %, CPU load.
+
+This gives you the power/battery/CPU state right before a crash, without needing a kernel dump. Setup: `scripts\setup-crash-logger.ps1` (no admin required).
 
 ## Quick start
 
@@ -44,11 +54,15 @@ windows-health-check/
 ├── Run-SFC-Now.bat           # Manual SFC anytime
 ├── run-sfc-task.bat            # Used by weekly scheduled task
 ├── run-full-repair-task.bat    # Used by monthly scheduled task
+├── run-heartbeat-task.bat      # Used by the 2-minute crash logger task
 └── scripts/
     ├── _config.ps1             # Paths (repo root + log dir)
-    ├── setup-schedule.ps1        # Registers tasks
+    ├── setup-schedule.ps1        # Registers SFC/DISM tasks (admin)
+    ├── setup-crash-logger.ps1     # Registers heartbeat task (no admin)
     ├── run-sfc.ps1
-    └── run-full-repair.ps1
+    ├── run-full-repair.ps1
+    ├── heartbeat.ps1
+    └── check-last-shutdown.ps1
 ```
 
 ## Logs
@@ -60,6 +74,8 @@ windows-health-check/
 | `last-full-repair.txt` | Last DISM+SFC result |
 | `sfc-YYYY-MM-DD-HHmm.log` | Full SFC output |
 | `tasks-status.txt` | Scheduled task details |
+| `heartbeat.log` | Rolling AC/battery/CPU snapshots, one line every 2 min |
+| `crash-summary.log` | Each detected unexpected shutdown + heartbeats leading up to it |
 
 ## Requirements
 
@@ -72,6 +88,7 @@ windows-health-check/
 ```powershell
 schtasks /Delete /TN WinHealth-SFC-Weekly /F
 schtasks /Delete /TN WinHealth-Full-Monthly /F
+schtasks /Delete /TN WinHealth-Heartbeat /F
 ```
 
 Then delete the clone folder and optionally `%LOCALAPPDATA%\WindowsHealthCheck\logs`.
