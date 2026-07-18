@@ -23,6 +23,8 @@ Hard power-loss crashes (loose charger, failing battery, etc.) don't produce a B
 
 This gives you the power/battery/CPU state right before a crash, without needing a kernel dump. Setup: `scripts\setup-crash-logger.ps1` (no admin required).
 
+The task launches via `scripts\heartbeat-silent.vbs` (`wscript.exe //B`) instead of a `.bat`/`cmd` wrapper, so nothing ever flashes on screen every 2 minutes.
+
 ## Quick start
 
 ### 1. Clone to a permanent location
@@ -54,11 +56,11 @@ windows-health-check/
 ├── Run-SFC-Now.bat           # Manual SFC anytime
 ├── run-sfc-task.bat            # Used by weekly scheduled task
 ├── run-full-repair-task.bat    # Used by monthly scheduled task
-├── run-heartbeat-task.bat      # Used by the 2-minute crash logger task
 └── scripts/
     ├── _config.ps1             # Paths (repo root + log dir)
     ├── setup-schedule.ps1        # Registers SFC/DISM tasks (admin)
     ├── setup-crash-logger.ps1     # Registers heartbeat task (no admin)
+    ├── heartbeat-silent.vbs       # Silent launcher used by the task (no window)
     ├── run-sfc.ps1
     ├── run-full-repair.ps1
     ├── heartbeat.ps1
