@@ -18,8 +18,11 @@ Logs: `%LOCALAPPDATA%\WindowsHealthCheck\logs\`
 
 Hard power-loss crashes (loose charger, failing battery, etc.) don't produce a BSOD or minidump — Windows just shuts off. `WinHealth-Heartbeat` runs every 2 minutes and:
 
-1. Checks for a new unexpected shutdown (Event ID 6008). If found, appends the event plus the **last 5 heartbeats before the crash** to `crash-summary.log`.
+1. Checks for a new unexpected shutdown (Event ID 6008). If found, appends the event plus the **last 10 heartbeats**, **last 10 power events**, and any **logger gap warning** to `crash-summary.log`.
 2. Appends one line to `heartbeat.log`: timestamp, AC online/offline, battery %, CPU load.
+3. Logs plug/unplug transitions to `power-events.log` (plus Windows Kernel-Power event 105 when available).
+4. Shows a **20% low-battery** toast + alarm when on battery at/below threshold.
+5. Shows an **overnight on-battery reminder** (10 PM–7 AM local) so the laptop is not left unplugged overnight.
 
 This gives you the power/battery/CPU state right before a crash, without needing a kernel dump. Setup: `scripts\setup-crash-logger.ps1` (no admin required).
 

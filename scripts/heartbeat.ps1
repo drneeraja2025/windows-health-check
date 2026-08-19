@@ -2,54 +2,81 @@
 # Runs every 2 minutes via scheduled task. Since hard power-loss crashes leave
 # no BSOD/minidump, this gives us the last known state right before a crash.
 . "$PSScriptRoot\_config.ps1"
+. "$PSScriptRoot\_notify.ps1"
 
 $logFile = Join-Path $LogDir 'heartbeat.log'
+$powerLog = Join-Path $LogDir 'power-events.log'
+$acStateFile = Join-Path $LogDir '.last-ac-state.txt'
 
 Add-Type -AssemblyName System.Windows.Forms -ErrorAction SilentlyContinue
 $power = [System.Windows.Forms.SystemInformation]::PowerStatus
-$ac = $power.PowerLineStatus
+$ac = $power.PowerLineStatus.ToString()
 $batteryPct = [math]::Round($power.BatteryLifePercent * 100, 0)
 $cpuLoad = (Get-CimInstance Win32_Processor -ErrorAction SilentlyContinue | Measure-Object -Property LoadPercentage -Average).Average
 
 $line = "{0:yyyy-MM-dd HH:mm:ss} | AC={1} | Battery={2}% | CPU={3}%" -f (Get-Date), $ac, $batteryPct, $cpuLoad
 Add-Content -Path $logFile -Value $line
 
-# Critical low-battery warning: persistent toast + alarm sound, re-shown every
-# heartbeat cycle (every 2 min) while on battery and at/below the threshold,
-# so it can't be missed and the battery never drains to 0%.
+# Log AC plug/unplug transitions so crash analysis is not blind during gaps.
+$prevAc = if (Test-Path $acStateFile) { (Get-Content $acStateFile -Raw).Trim() } else { '' }
+if ($prevAc -and $prevAc -ne $ac) {
+    $powerLine = "{0:yyyy-MM-dd HH:mm:ss} | AC changed: {1} -> {2} | Battery={3}% | CPU={4}%" -f (Get-Date), $prevAc, $ac, $batteryPct, $cpuLoad
+    Add-Content -Path $powerLog -Value $powerLine
+    Add-Content -Path $logFile -Value "  -> $powerLine"
+}
+Set-Content -Path $acStateFile -Value $ac
+
+# Also pull Kernel-Power 105 events since last sync (catches transitions between heartbeats).
+$powerSyncFile = Join-Path $LogDir '.last-power-event-sync.txt'
+$since = if (Test-Path $powerSyncFile) {
+    try { [datetime](Get-Content $powerSyncFile -Raw).Trim() } catch { (Get-Date).AddMinutes(-3) }
+}
+else {
+    (Get-Date).AddMinutes(-3)
+}
+Get-WinEvent -FilterHashtable @{
+    LogName = 'System'
+    ProviderName = 'Microsoft-Windows-Kernel-Power'
+    Id = 105
+    StartTime = $since
+} -ErrorAction SilentlyContinue | ForEach-Object {
+    $kernelLine = "{0:yyyy-MM-dd HH:mm:ss} | Kernel-Power 105 (system) | AC={1} | Battery={2}% | CPU={3}%" -f $_.TimeCreated, $ac, $batteryPct, $cpuLoad
+    Add-Content -Path $powerLog -Value $kernelLine
+}
+Set-Content -Path $powerSyncFile -Value ((Get-Date).ToString('o'))
+
+# Critical low-battery warning at/below threshold.
 if ($ac -eq 'Offline' -and $batteryPct -le $LowBatteryThreshold) {
-    try {
-        [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] | Out-Null
-        [Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType = WindowsRuntime] | Out-Null
-
-        $xmlText = @"
-<toast scenario="urgent">
-  <visual>
-    <binding template="ToastGeneric">
-      <text>Battery Critical: $batteryPct%</text>
-      <text>Plug in the charger now. Do not let it drain to 0%.</text>
-    </binding>
-  </visual>
-  <audio src="ms-winsoundevent:Notification.Looping.Alarm2" loop="true"/>
-</toast>
-"@
-        $xmlDoc = New-Object Windows.Data.Xml.Dom.XmlDocument
-        $xmlDoc.LoadXml($xmlText)
-        $toast = New-Object Windows.UI.Notifications.ToastNotification $xmlDoc
-        $toast.Tag = 'LowBatteryWarning'
-        $toast.Group = 'WindowsHealthCheck'
-
-        $appId = '{1AC14E77-02E7-4E5D-B744-2EB1AE5198B7}\WindowsPowerShell\v1.0\powershell.exe'
-        [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier($appId).Show($toast)
+    $shown = Show-HealthToast -Title "Battery Critical: $batteryPct%" `
+        -Body 'Plug in the charger now. Do not let it drain to 0%.' `
+        -Tag 'LowBatteryWarning' -Scenario urgent -LoopAlarm
+    if ($shown) {
         Add-Content -Path $logFile -Value "  -> Low battery warning shown ($batteryPct%)"
     }
-    catch {
-        Add-Content -Path $logFile -Value "  -> WARN: failed to show low-battery toast: $_"
+    else {
+        Add-Content -Path $logFile -Value "  -> WARN: failed to show low-battery toast"
     }
 }
 
-# Keep the log lightweight — trim once it passes ~512KB
-if ((Test-Path $logFile) -and (Get-Item $logFile).Length -gt 512KB) {
-    $tail = Get-Content $logFile -Tail 3000
-    Set-Content -Path $logFile -Value $tail
+# Overnight reminder: still on battery during sleep hours — prevents overnight drain.
+$hour = (Get-Date).Hour
+$isOvernight = ($hour -ge $OvernightStartHour) -or ($hour -lt $OvernightEndHour)
+if ($isOvernight -and $ac -eq 'Offline') {
+    $urgentOvernight = $batteryPct -le 30
+    $shown = Show-HealthToast -Title "Still on battery ($batteryPct%)" `
+        -Body 'Plug in before sleep — unplugged overnight can drain the battery to 0%.' `
+        -Tag 'OvernightBatteryWarning' `
+        -Scenario $(if ($urgentOvernight) { 'urgent' } else { 'reminder' }) `
+        -LoopAlarm:$urgentOvernight
+    if ($shown) {
+        Add-Content -Path $logFile -Value "  -> Overnight on-battery warning shown ($batteryPct%)"
+    }
+}
+
+# Keep logs lightweight — trim once they pass ~512KB
+foreach ($file in @($logFile, $powerLog)) {
+    if ((Test-Path $file) -and (Get-Item $file).Length -gt 512KB) {
+        $tail = Get-Content $file -Tail 3000
+        Set-Content -Path $file -Value $tail
+    }
 }
